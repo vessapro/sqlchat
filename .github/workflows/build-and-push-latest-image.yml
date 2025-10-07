@@ -50,3 +50,39 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Docker meta for website
+        id: meta-website
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            sqlchat/sqlchat
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=website-latest
+
+      - name: Build and Push Website Image
+        id: docker_build_website
+        uses: docker/build-push-action@v3
+        with:
+          context: ./
+          file: ./Dockerfile.sqlchat-ai
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta-website.outputs.tags }}
+          labels: ${{ steps.meta-website.outputs.labels }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v1
+        with:
+          cluster_name: ${{ secrets.GKE_CLUSTER_NAME }}
+          location: ${{ secrets.GKE_CLUSTER_LOCATION }}
+
+      - name: Restart deployment
+        run: kubectl rollout restart deployment/sqlchat --namespace website
